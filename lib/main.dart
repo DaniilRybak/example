@@ -35,6 +35,8 @@ class MyMapPage extends StatefulWidget {
 
 class _MyMapPageState extends State<MyMapPage> {
   late YandexMapController controller;
+  Point? currentLocationPoint;
+  late List<MarkerData> allMarkers;
   final List<MapObject> mapObjects = [];
   final MapObjectId clusterId =
       const MapObjectId('clusterized_placemark_collection');
@@ -45,108 +47,228 @@ class _MyMapPageState extends State<MyMapPage> {
     loadMarkers();
   }
 
-Future<void> loadMarkers() async {
-  try {
-    final markers = await fetchTestMarkers();
-    final placemarks = markers.map((marker) {
-      // Выбор изображения в зависимости от типа метки:
-      String asset;
-      switch (marker.type) {
-        case 'full':
-          asset = 'lib/assets/route_start.png';
-          break;
-        case 'empty':
-          asset = 'lib/assets/route_end.png';
-          break;
-        case 'route':
-          asset = 'lib/assets/route_stop_by.png';
-          break;
-        default:
-          asset = 'lib/assets/place.png';
-          break;
-      }
-      return PlacemarkMapObject(
-        mapId: MapObjectId(marker.id),
-        point: Point(latitude: marker.latitude, longitude: marker.longitude),
+  Future<void> loadMarkers() async {
+    try {
+      final markers = await fetchTestMarkers();
+      allMarkers = markers;
+      final placemarks = markers.map((marker) {
+        // Выбор изображения в зависимости от типа метки:
+        String asset;
+        switch (marker.type) {
+          case 'full':
+            asset = 'lib/assets/route_start.png';
+            break;
+          case 'empty':
+            asset = 'lib/assets/route_end.png';
+            break;
+          case 'route':
+            asset = 'lib/assets/route_stop_by.png';
+            break;
+          default:
+            asset = 'lib/assets/place.png';
+            break;
+        }
+        return PlacemarkMapObject(
+          mapId: MapObjectId(marker.id),
+          point: Point(latitude: marker.latitude, longitude: marker.longitude),
+          icon: PlacemarkIcon.single(
+            PlacemarkIconStyle(
+              image: BitmapDescriptor.fromAssetImage(asset),
+              scale: 1,
+            ),
+          ),
+        );
+      }).toList();
+
+      // Добавляем метку с текущей геолокацией
+      final Position position = await _determinePosition();
+      final currentLocationPlacemark = PlacemarkMapObject(
+        mapId: const MapObjectId('current_location'),
+        point: Point(latitude: position.latitude, longitude: position.longitude),
         icon: PlacemarkIcon.single(
           PlacemarkIconStyle(
-            image: BitmapDescriptor.fromAssetImage(asset),
+            image: BitmapDescriptor.fromAssetImage('lib/assets/user.png'),
             scale: 1,
           ),
         ),
       );
-    }).toList();
 
-    // Добавляем метку с текущей геолокацией
-    final Position position = await _determinePosition();
-    final currentLocationPlacemark = PlacemarkMapObject(
-      mapId: const MapObjectId('current_location'),
-      point: Point(latitude: position.latitude, longitude: position.longitude),
-      icon: PlacemarkIcon.single(
-        PlacemarkIconStyle(
-          image: BitmapDescriptor.fromAssetImage('lib/assets/user.png'),
-          scale: 1,
-        ),
-      ),
-    );
+      placemarks.add(currentLocationPlacemark);
 
-    placemarks.add(currentLocationPlacemark);
-
-    final clusterized = ClusterizedPlacemarkCollection(
-      mapId: clusterId,
-      radius: 30,
-      minZoom: 15,
-      placemarks: placemarks,
-      onClusterAdded: (ClusterizedPlacemarkCollection self, Cluster cluster) async {
-        return cluster.copyWith(
-          appearance: cluster.appearance.copyWith(
-            icon: PlacemarkIcon.single(
-              PlacemarkIconStyle(
-                image: BitmapDescriptor.fromAssetImage('lib/assets/cluster.png'),
-                scale: 1,
+      final clusterized = ClusterizedPlacemarkCollection(
+        mapId: clusterId,
+        radius: 30,
+        minZoom: 15,
+        placemarks: placemarks,
+        onClusterAdded: (ClusterizedPlacemarkCollection self, Cluster cluster) async {
+          return cluster.copyWith(
+            appearance: cluster.appearance.copyWith(
+              icon: PlacemarkIcon.single(
+                PlacemarkIconStyle(
+                  image: BitmapDescriptor.fromAssetImage('lib/assets/cluster.png'),
+                  scale: 1,
+                ),
               ),
-            ),
-          ),
-        );
-      },
-      onClusterTap: (ClusterizedPlacemarkCollection self, Cluster cluster) {
-        print('Tapped cluster');
-      },
-      onTap: (ClusterizedPlacemarkCollection self, Point point) {
-        print('Tapped at $point');
-      },
-    );
-
-    setState(() {
-      mapObjects.add(clusterized);
-    });
-  } catch (error) {
-    print("Ошибка при загрузке меток: $error");
-  }
-}
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Карта с тестовыми метками'),
-      ),
-      body: YandexMap(
-        mapObjects: mapObjects,
-        onMapCreated: (YandexMapController yandexMapController) async {
-          controller = yandexMapController;
-          // Перемещаем камеру к указанной начальной точке
-          await controller.moveCamera(
-            CameraUpdate.newCameraPosition(
-              CameraPosition(target: widget.initialCameraTarget, zoom: 13),
             ),
           );
         },
-        onCameraPositionChanged: (CameraPosition cameraPosition, CameraUpdateReason _, bool __) async {
-          // Можно добавить обновление состояния или другие действия при изменении позиции камеры
+        onClusterTap: (ClusterizedPlacemarkCollection self, Cluster cluster) {
+          print('Tapped cluster');
         },
+        onTap: (ClusterizedPlacemarkCollection self, Point point) {
+          print('Tapped at $point');
+        },
+      );
+
+      setState(() {
+        mapObjects.add(clusterized);
+      });
+    } catch (error) {
+      print("Ошибка при загрузке меток: $error");
+    }
+  }
+
+    @override
+    Widget build(BuildContext context) {
+        return Scaffold(
+          appBar: AppBar(
+          title: const Text('Карта с маршрутами'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.directions),
+              onPressed: _buildRoute,
+              tooltip: 'Построить маршрут',
+            ),
+          ],
+        ),
+        body: YandexMap(
+          mapObjects: mapObjects,
+          onMapCreated: (YandexMapController yandexMapController) async {
+            controller = yandexMapController;
+            // Перемещаем камеру к указанной начальной точке
+            await controller.moveCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(target: widget.initialCameraTarget, zoom: 13),
+              ),
+            );
+          },
+          onCameraPositionChanged: (CameraPosition cameraPosition, CameraUpdateReason _, bool __) async {
+            // Можно добавить обновление состояния или другие действия при изменении позиции камеры
+          },
+        ),
+      );
+    }
+    
+  void _updateMapWithRoute(Polyline geometry) {
+    setState(() {
+      mapObjects.removeWhere((obj) => obj.mapId.value.startsWith('route_'));
+      mapObjects.add(PolylineMapObject(
+        mapId: const MapObjectId('route_0'),
+        polyline: geometry,
+        strokeColor: Colors.blue,
+        strokeWidth: 4,
+      ));
+    });
+  }
+
+  List<MarkerData> getFullMarkers() {
+    return allMarkers.where((marker) => marker.type == 'full').toList();
+  }
+
+    Future<void> _buildRoute() async {
+    if (currentLocationPoint == null) return;
+
+    // Получаем красные метки
+    final fullMarkers = getFullMarkers();
+    if (fullMarkers.isEmpty) return;
+
+    // Сортируем метки по расстоянию
+    final sortedMarkers = sortMarkersByDistance(currentLocationPoint!, fullMarkers);
+
+    // Создаем точки маршрута
+    final List<RequestPoint> routePoints = [
+      RequestPoint(point: currentLocationPoint!, requestPointType: RequestPointType.wayPoint),
+      ...sortedMarkers.map((marker) => RequestPoint(
+        point: Point(latitude: marker.latitude, longitude: marker.longitude),
+        requestPointType: RequestPointType.wayPoint,
+      )),
+    ];
+
+    // Запрашиваем маршрут
+    final resultWithSession = await YandexDriving.requestRoutes(
+      points: routePoints,
+      drivingOptions: const DrivingOptions(
+        routesCount: 1,
+        avoidTolls: true,
       ),
     );
+
+    final result = await resultWithSession.$2;
+    final session = resultWithSession.$1;
+
+    if (result.error != null) {
+      print('Ошибка: ${result.error}');
+      return;
+    }
+
+    if (result.routes == null || result.routes!.isEmpty) {
+      print('Маршрут не найден');
+      return;
+    }
+
+    // Отображаем маршрут на карте
+    final route = result.routes!.first;
+    _updateMapWithRoute(route.geometry);
+
+    // Закрываем сессию
+    await session.close();
+  }
+
+  List<MarkerData> sortMarkersByDistance(Point startPoint, List<MarkerData> markers) {
+    markers.sort((a, b) {
+      final distanceA = Geolocator.distanceBetween(
+        startPoint.latitude,
+        startPoint.longitude,
+        a.latitude,
+        a.longitude,
+      );
+      final distanceB = Geolocator.distanceBetween(
+        startPoint.latitude,
+        startPoint.longitude,
+        b.latitude,
+        b.longitude,
+      );
+      return distanceA.compareTo(distanceB);
+    });
+    return markers;
+  }
+
+  
+Future<Position> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Проверяем, включены ли службы геолокации
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Службы геолокации отключены.');
+    }
+
+    // Проверяем разрешения на доступ к геолокации
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Разрешения на доступ к геолокации отклонены.');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error('Разрешения на доступ к геолокации отклонены навсегда.');
+    }
+
+    // Получаем текущую позицию
+    return await Geolocator.getCurrentPosition();
   }
 }
 
@@ -253,31 +375,4 @@ class MyApp extends StatelessWidget {
       home: MainScreen(),
     );
   }
-}
-
-Future<Position> _determinePosition() async {
-  bool serviceEnabled;
-  LocationPermission permission;
-
-  // Проверяем, включены ли службы геолокации
-  serviceEnabled = await Geolocator.isLocationServiceEnabled();
-  if (!serviceEnabled) {
-    return Future.error('Службы геолокации отключены.');
-  }
-
-  // Проверяем разрешения на доступ к геолокации
-  permission = await Geolocator.checkPermission();
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.denied) {
-      return Future.error('Разрешения на доступ к геолокации отклонены.');
-    }
-  }
-
-  if (permission == LocationPermission.deniedForever) {
-    return Future.error('Разрешения на доступ к геолокации отклонены навсегда.');
-  }
-
-  // Получаем текущую позицию
-  return await Geolocator.getCurrentPosition();
 }
