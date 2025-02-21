@@ -20,8 +20,8 @@ class MarkerData {
 Future<List<MarkerData>> fetchTestMarkers() async {
   return [
     MarkerData(id: 'placemark_1', latitude: 55.756, longitude: 37.618, type: 'full'),
-    MarkerData(id: 'placemark_2', latitude: 59.956, longitude: 30.313, type: 'empty'),
-    MarkerData(id: 'placemark_3', latitude: 59.956, longitude: 30.3135, type: 'route'),
+    MarkerData(id: 'placemark_2', latitude: 59.956, longitude: 30.313, type: 'full'),
+    MarkerData(id: 'placemark_3', latitude: 59.956, longitude: 30.3135, type: 'full'),
   ];
 }
 
@@ -81,10 +81,11 @@ class _MyMapPageState extends State<MyMapPage> {
       }).toList();
 
       // Добавляем метку с текущей геолокацией
-      final Position position = await _determinePosition();
+      //final Position position = await _determinePosition();
+      currentLocationPoint = const Point(latitude: 47.214758, longitude: 38.914220);
       final currentLocationPlacemark = PlacemarkMapObject(
         mapId: const MapObjectId('current_location'),
-        point: Point(latitude: position.latitude, longitude: position.longitude),
+        point: const Point(latitude: 47.214758, longitude: 38.914220),
         icon: PlacemarkIcon.single(
           PlacemarkIconStyle(
             image: BitmapDescriptor.fromAssetImage('lib/assets/user.png'),
@@ -176,10 +177,12 @@ class _MyMapPageState extends State<MyMapPage> {
   }
 
     Future<void> _buildRoute() async {
+
     if (currentLocationPoint == null) return;
 
     // Получаем красные метки
     final fullMarkers = getFullMarkers();
+    print('Full markers count: ${fullMarkers.length}');
     if (fullMarkers.isEmpty) return;
 
     // Сортируем метки по расстоянию
@@ -207,7 +210,7 @@ class _MyMapPageState extends State<MyMapPage> {
     final session = resultWithSession.$1;
 
     if (result.error != null) {
-      print('Ошибка: ${result.error}');
+      print('Ошибка построения маршрута: ${result.error.toString()}');
       return;
     }
 
@@ -244,11 +247,12 @@ class _MyMapPageState extends State<MyMapPage> {
   }
 
   
+// ignore: unused_element
 Future<Position> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Проверяем, включены ли службы геолокации
+    // Проверяем, включены ли службы геолокацииWW
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return Future.error('Службы геолокации отключены.');
@@ -272,32 +276,208 @@ Future<Position> _determinePosition() async {
   }
 }
 
-/// Заглушка для страницы профиля
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
-  
+
+  @override
+  _ProfilePageState createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  bool _isDarkTheme = false; // Переменная для хранения состояния темы
+
+  void _toggleTheme(bool value) {
+    setState(() {
+      _isDarkTheme = value;
+    });
+    // Здесь можно добавить логику для смены темы (например, через Provider)
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Профиль'),
       ),
-      body: const Center(child: Text('Страница профиля')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Аватар
+            const CircleAvatar(
+              radius: 50,
+              backgroundImage: AssetImage('assets/avatar.png'), // Замените на свой аватар
+              child: Icon(Icons.person, size: 50, color: Colors.white), // Заглушка, если нет изображения
+            ),
+            const SizedBox(height: 16),
+
+            // ФИО
+            const Text(
+              'Иванов Иван Иванович',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Идентификационный номер
+            const Text(
+              'Идентификационный номер: 123456789',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Переключение темы
+            ListTile(
+              leading: Icon(
+                _isDarkTheme ? Icons.dark_mode : Icons.light_mode,
+                color: _isDarkTheme ? Colors.black : Colors.amber,
+              ),
+              title: const Text('Темная тема'),
+              trailing: Switch(
+                value: _isDarkTheme,
+                onChanged: _toggleTheme,
+                activeColor: Colors.blueAccent,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Номер телефона для срочной поддержки
+            const ListTile(
+              leading: Icon(Icons.phone, color: Colors.red),
+              title: Text('Срочная поддержка'),
+              subtitle: Text('+7 (123) 456-78-90'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-/// Заглушка для страницы поддержки
-class SupportPage extends StatelessWidget {
-  const SupportPage({super.key});
-  
+class SupportPage extends StatefulWidget {
+  final List<Map<String, String>> chatMessages;
+
+  const SupportPage({super.key, required this.chatMessages});
+
+  @override
+  _SupportPageState createState() => _SupportPageState();
+}
+
+class _SupportPageState extends State<SupportPage> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  void _sendMessage() {
+    if (_controller.text.isNotEmpty) {
+      setState(() {
+        // Добавляем сообщение от пользователя
+        widget.chatMessages.add({
+          'text': _controller.text,
+          'sender': 'user',
+        });
+
+        // Очищаем поле ввода
+        _controller.clear();
+
+        // Добавляем автоматический ответ от поддержки (заглушка)
+        Future.delayed(const Duration(seconds: 1), () {
+          setState(() {
+            widget.chatMessages.add({
+              'text': 'Спасибо за ваше сообщение! Мы свяжемся с вами в ближайшее время.',
+              'sender': 'support',
+            });
+          });
+
+          // Прокручиваем список сообщений вниз
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        });
+      });
+
+      // Прокручиваем список сообщений вниз
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Поддержка'),
       ),
-      body: const Center(child: Text('Страница поддержки')),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              itemCount: widget.chatMessages.length,
+              itemBuilder: (context, index) {
+                var message = widget.chatMessages[index];
+                var text = message['text'];
+                var sender = message['sender'];
+
+                // Определяем стиль сообщения в зависимости от отправителя
+                bool isUser = sender == 'user';
+                return Align(
+                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isUser ? Colors.blueAccent : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      text!,
+                      style: TextStyle(
+                        color: isUser ? Colors.white : Colors.black,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: InputDecoration(
+                      hintText: 'Введите сообщение...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Colors.blueAccent),
+                  onPressed: _sendMessage,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -305,26 +485,23 @@ class SupportPage extends StatelessWidget {
 /// Главный экран с нижней навигацией для переключения вкладок
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
-  
+
   @override
   _MainScreenState createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  
-  // Задаем начальную позицию камеры для страницы "Карта"
-  final Point defaultCameraTarget = const Point(latitude: 47.214758, longitude: 38.914220);
-
-  final List<Widget> _pages = []; // Инициализируется в initState
+  final List<Widget> _pages = [];
+  final List<Map<String, String>> _chatMessages = []; // Сохраняем сообщения здесь
 
   @override
   void initState() {
     super.initState();
     _pages.addAll([
-      MyMapPage(initialCameraTarget: defaultCameraTarget),
-      const ProfilePage(),
-      const SupportPage(),
+      MyMapPage(initialCameraTarget: const Point(latitude: 47.214758, longitude: 38.914220)),
+      ProfilePage(),
+      SupportPage(chatMessages: _chatMessages), // Передаем сообщения в SupportPage
     ]);
   }
 
@@ -333,7 +510,7 @@ class _MainScreenState extends State<MainScreen> {
       _selectedIndex = index;
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
