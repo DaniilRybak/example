@@ -1,6 +1,6 @@
 # yandex_mapkit_example
 
-Demonstrates how to use the yandex_mapkit plugin.
+Проект 2 ЮФУ Flutter+Go
 
 ## Getting Started
 

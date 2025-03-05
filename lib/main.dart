@@ -95,7 +95,6 @@ class _MyMapPageState extends State<MyMapPage> {
   void initState() {
     super.initState();
     fetchAndUpdateBinStatus();
-    loadMarkers();
     startPeriodicUpdates();
   }
 
@@ -125,6 +124,10 @@ class _MyMapPageState extends State<MyMapPage> {
             asset = 'lib/assets/place.png'; // Default
             break;
         }
+        if(marker.charge == 1){
+          asset = 'lib/assets/pngwing.png';
+        }
+        
         return PlacemarkMapObject(
           mapId: MapObjectId(marker.id),
           point: Point(latitude: marker.latitude, longitude: marker.longitude),
