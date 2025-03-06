@@ -20,7 +20,9 @@ class MarkerData {
     required this.charge,
   });
 }
+
 bool _isRouteActive = false;
+PolylineMapObject? _routeObject;
 
 Future<void> updateBinStatus(String serialNumber, int status) async {
   final response = await http.put(
@@ -51,7 +53,6 @@ class _MyMapPageState extends State<MyMapPage> {
   final List<MapObject> mapObjects = [];
   final MapObjectId clusterId = const MapObjectId('clusterized_placemark_collection');
   List<MarkerData> routeMarkers = [];
-  PolylineMapObject? _routeObject;
 
   Timer? _timer;
 
@@ -71,6 +72,14 @@ class _MyMapPageState extends State<MyMapPage> {
         });
 
         loadMarkers();
+        if (getFullMarkers().length > 4) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Более 4 заполненных баков. Начните маршрут!'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       } else {
         throw Exception('Failed to load bin status');
       }
@@ -102,6 +111,24 @@ class _MyMapPageState extends State<MyMapPage> {
     setState(() {
       routeMarkers.removeWhere((marker) => marker.type == 0);
     });
+  }
+
+  void _showMarkerInfo(MarkerData marker) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Маркер ${marker.id}'),
+          content: Text('Координаты: ${marker.latitude}, ${marker.longitude}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> loadMarkers() async {
@@ -137,6 +164,9 @@ class _MyMapPageState extends State<MyMapPage> {
               scale: 1,
             ),
           ),
+          onTap: (PlacemarkMapObject self, Point point) {
+            _showMarkerInfo(marker); // Вызов метода для отображения информации
+          },
         );
       }).toList();
 
@@ -215,7 +245,6 @@ class _MyMapPageState extends State<MyMapPage> {
     final fullMarkers = getFullMarkers();
     print('Full markers count: ${fullMarkers.length}');
 
-    // Проверяем, что количество контейнеров с типом full больше 4
     if (fullMarkers.length <= 4) {
       showDialog(
         context: context,
@@ -303,7 +332,6 @@ class _MyMapPageState extends State<MyMapPage> {
         return;
       }
 
-      // Отображаем маршрут на карте
       final route = result.routes!.first;
       _updateMapWithRoute(route.geometry);
 
@@ -337,19 +365,16 @@ class _MyMapPageState extends State<MyMapPage> {
     return markers;
   }
 
-  
   // ignore: unused_element
   Future<Position> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Проверяем, включены ли службы геолокацииWW
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return Future.error('Службы геолокации отключены.');
     }
 
-    // Проверяем разрешения на доступ к геолокации
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -362,7 +387,6 @@ class _MyMapPageState extends State<MyMapPage> {
       return Future.error('Разрешения на доступ к геолокации отклонены навсегда.');
     }
 
-    // Получаем текущую позицию
     return await Geolocator.getCurrentPosition();
   }
 
@@ -392,7 +416,7 @@ class _MyMapPageState extends State<MyMapPage> {
       try {
         for (var marker in allMarkers) {
           if (marker.type == 1) {
-            await updateBinStatus(marker.id, -1); // Обновляем статус на -1 (full)
+            await updateBinStatus(marker.id, -1);
           }
         }
 
@@ -400,8 +424,7 @@ class _MyMapPageState extends State<MyMapPage> {
           _isRouteActive = false;
           _routeObject = null;
         });
-
-        // Получаем актуальные статусы баков с сервера
+        
         fetchAndUpdateBinStatus();
       } catch (e) {
         print('Ошибка при отмене завершения маршрута: $e');
@@ -410,30 +433,98 @@ class _MyMapPageState extends State<MyMapPage> {
     }
   }
 
+  Future<void> _centerOnUserLocation() async {
+    if (currentLocationPoint != null) {
+      await controller.moveCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: currentLocationPoint!, zoom: 13),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Карта с маршрутами'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.directions),
-            onPressed: _isRouteActive ? _completeRoute : _buildRoute,
-            tooltip: _isRouteActive ? 'Завершить маршрут' : 'Построить маршрут',
+        title: const Text('EcoTechBin'),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: Text(
+                '00:00',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
           ),
         ],
       ),
-      body: YandexMap(
-        mapObjects: mapObjects,
-        onMapCreated: (YandexMapController yandexMapController) async {
-          controller = yandexMapController;
-          await controller.moveCamera(
-            CameraUpdate.newCameraPosition(
-              CameraPosition(target: widget.initialCameraTarget, zoom: 13),
+      body: Stack(
+        children: [
+          YandexMap(
+            mapObjects: mapObjects,
+            onMapCreated: (YandexMapController yandexMapController) async {
+              controller = yandexMapController;
+              await controller.moveCamera(
+                CameraUpdate.newCameraPosition(
+                  CameraPosition(target: widget.initialCameraTarget, zoom: 13),
+                ),
+              );
+            },
+            onCameraPositionChanged: (CameraPosition cameraPosition, CameraUpdateReason _, bool __) async {},
+          ),
+          Positioned(
+            top: 20,
+            right: 20,
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: _isRouteActive ? Colors.red : Colors.green,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      _isRouteActive ? Icons.stop : Icons.directions,
+                      color: Colors.white,
+                    ),
+                    onPressed: _isRouteActive ? _completeRoute : _buildRoute,
+                    iconSize: 24,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.my_location, color: Colors.white),
+                    onPressed: _centerOnUserLocation,
+                    iconSize: 24,
+                  ),
+                ),
+              ],
             ),
-          );
-        },
-        onCameraPositionChanged: (CameraPosition cameraPosition, CameraUpdateReason _, bool __) async {},
+          ),
+        ],
       ),
     );
   }
@@ -443,6 +534,7 @@ class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _ProfilePageState createState() => _ProfilePageState();
 }
 
@@ -460,6 +552,17 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Профиль'),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: Text(
+                '00:00',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -493,6 +596,17 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 32),
 
+            const ListTile(
+              leading: Icon(Icons.route_outlined, color: Colors.green), // Иконка карты
+              title: Text('Залогировать выход на маршрут'),
+            ),
+
+            const ListTile(
+              leading: Icon(Icons.stop_circle, color: Colors.red), // Иконка карты
+              title: Text('Залогировать выход с маршрута'),
+            ),
+            const SizedBox(height: 16),
+
             // Переключение темы
             ListTile(
               leading: Icon(
@@ -506,8 +620,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 activeColor: Colors.blueAccent,
               ),
             ),
-            const SizedBox(height: 16),
 
+            // Кнопка "Настройка карты"
+            const ListTile(
+              leading: Icon(Icons.map, color: Colors.blue), // Иконка карты
+              title: Text('Настройка карты'),
+              trailing: Icon(Icons.arrow_forward_ios, size: 16), // Стрелка вправо
+            ),
+            
             // Номер телефона для срочной поддержки
             const ListTile(
               leading: Icon(Icons.phone, color: Colors.red),
@@ -655,8 +775,8 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _pages.addAll([
-      MyMapPage(initialCameraTarget: const Point(latitude: 47.214758, longitude: 38.914220)),
-      ProfilePage(),
+      const MyMapPage(initialCameraTarget: Point(latitude: 47.214758, longitude: 38.914220)),
+      const ProfilePage(),
       SupportPage(chatMessages: _chatMessages), // Передаем сообщения в SupportPage
     ]);
   }
