@@ -22,6 +22,10 @@ dev_dependencies:
 
 flutter:
   assets:
+    - lib/assets/bin_person.png
+    - lib/assets/route_bin.png
+    - lib/assets/full_bin.png
+    - lib/assets/empty_bin.png
     - lib/assets/user.png
     - lib/assets/cluster.png
     - lib/assets/pngwing.png
