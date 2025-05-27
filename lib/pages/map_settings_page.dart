@@ -12,6 +12,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
   bool _showBuildings = true;
   bool _showLabels = true;
   String _mapType = 'standard';
+  double _mapOpacity = 1.0;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +45,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
               children: [
                 const Text(
                   'Тип карты',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 DropdownButton<String>(
@@ -69,6 +70,26 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
                       setState(() => _mapType = value);
                     }
                   },
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Прозрачность карты',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Slider(
+                  value: _mapOpacity,
+                  min: 0.5,
+                  max: 1.0,
+                  divisions: 5,
+                  label: _mapOpacity.toStringAsFixed(1),
+                  onChanged: (value) => setState(() => _mapOpacity = value),
                 ),
               ],
             ),
