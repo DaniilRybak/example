@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../services/chat_provider.dart';
 
 class SupportPage extends StatefulWidget {
-  final List<Map<String, String>> chatMessages;
+  //final List<Map<String, String>> chatMessages;
 
-  const SupportPage({super.key, required this.chatMessages});
+  const SupportPage({super.key});
 
   @override
   _SupportPageState createState() => _SupportPageState();
@@ -17,9 +19,10 @@ class _SupportPageState extends State<SupportPage> {
   final ScrollController _suggestionsScrollController = ScrollController();
 
   void _sendMessage() {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
     if (_controller.text.isNotEmpty) {
       setState(() {
-        widget.chatMessages.add({
+        chatProvider.messages.add({
           'text': _controller.text,
           'sender': 'user',
           'time': DateFormat('HH:mm').format(DateTime.now()),
@@ -30,7 +33,7 @@ class _SupportPageState extends State<SupportPage> {
 
         Future.delayed(const Duration(seconds: 1), () {
           setState(() {
-            widget.chatMessages.add({
+            chatProvider.messages.add({
               'text': 'Спасибо за ваше сообщение! Мы свяжемся с вами в ближайшее время.',
               'sender': 'support',
               'time': DateFormat('HH:mm').format(DateTime.now()),
@@ -57,12 +60,27 @@ class _SupportPageState extends State<SupportPage> {
 
   @override
   void initState() {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-  }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (chatProvider.messages.isEmpty) {
+        setState(() {
+          chatProvider.messages.add({
+            'text': 'Здравствуйте! Чем можем помочь?',
+            'sender': 'support',
+            'time': DateFormat('HH:mm').format(DateTime.now()),
+          });
+        });
+      }
+
+      _scrollToBottom();
+    });
+}
 
   @override
   Widget build(BuildContext context) {
+    final chatProvider = Provider.of<ChatProvider>(context);
     return Scaffold(
       appBar: AppBar(
         title: RichText(
@@ -91,9 +109,9 @@ class _SupportPageState extends State<SupportPage> {
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.all(12),
-              itemCount: widget.chatMessages.length,
+              itemCount: chatProvider.messages.length,
               itemBuilder: (context, index) {
-                final message = widget.chatMessages[index];
+                final message = chatProvider.messages[index];
                 final isUser = message['sender'] == 'user';
                 
                 return Padding(

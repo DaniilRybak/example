@@ -3,11 +3,15 @@ import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
 import 'pages/auth_page.dart';
 import 'pages/main_screen.dart';
+import 'services/chat_provider.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider<AuthService>(
-      create: (context) => AuthService(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+      ],
       child: const MyApp(),
     ),
   );

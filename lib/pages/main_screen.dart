@@ -45,8 +45,8 @@ class _MainScreenState extends State<_MainScreenContent> {
     _pages = [
       const MyMapPage(initialCameraTarget: Point(latitude: 47.214758, longitude: 38.914220)),
       const ProfilePage(),
-      const SupportPage(chatMessages: []),
-      if (widget.isAdmin) const AdminPanel(),
+      const SupportPage(),
+      if (widget.isAdmin) const AdminPage(),
     ];
   }
 

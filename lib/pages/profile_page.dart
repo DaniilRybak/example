@@ -48,17 +48,17 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileCard(User? user, BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        elevation: 4,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+Widget _buildProfileCard(User? user, BuildContext context) {
+  return SizedBox(
+    width: MediaQuery.of(context).size.width - 32, // 16 * 2 margin
+    child: Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
             children: [
               Container(
                 decoration: BoxDecoration(
@@ -170,31 +170,32 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsCard(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-    final user = authService.currentUser;
+Widget _buildStatsCard(BuildContext context) {
+  final authService = Provider.of<AuthService>(context);
+  final user = authService.currentUser;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        elevation: 2,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildStatItem('Контейнеры', '${user?.stats?.containersCollected ?? 0}', Icons.delete),
-              _buildStatItem('Километры', '${user?.stats?.kilometersDriven ?? 0}', Icons.directions_car),
-              _buildStatItem('Рейтинг', '${user?.stats?.rating ?? 0}', Icons.star),
-            ],
-          ),
+  return SizedBox(
+    width: MediaQuery.of(context).size.width - 32,
+    child: Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildStatItem('Контейнеры', '${user?.stats?.containersCollected ?? 0}', Icons.delete),
+            _buildStatItem('Километры', '${user?.stats?.kilometersDriven ?? 0}', Icons.directions_car),
+            _buildStatItem('Рейтинг', '${user?.stats?.rating ?? 0}', Icons.star),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildStatItem(String title, String value, IconData icon) {
     return Column(

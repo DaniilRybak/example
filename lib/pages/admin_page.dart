@@ -1,262 +1,369 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/models.dart';
+import 'package:yandex_mapkit_example/models/models.dart';
 import '../services/auth_service.dart';
+import 'map_page.dart';
 
-class AdminPanel extends StatefulWidget {
-  const AdminPanel({Key? key}) : super(key: key);
+class AdminPage extends StatefulWidget {
+  const AdminPage({super.key});
 
   @override
-  _AdminPanelState createState() => _AdminPanelState();
+  State<AdminPage> createState() => _AdminPageState();
 }
 
-class _AdminPanelState extends State<AdminPanel> {
-  List<User> _users = [];
-  bool _isLoading = true;
+class _AdminPageState extends State<AdminPage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  List<Bin> bins = [];
+  List<User>? companyUsers;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    bins = BinConfig.localBins.map((b) => Bin.fromMap(b)).toList();
     _loadUsers();
   }
 
   Future<void> _loadUsers() async {
-    setState(() => _isLoading = true);
-    final authService = Provider.of<AuthService>(context, listen: false);
-    try {
-      final users = await authService.getCompanyUsers();
-      setState(() {
-        _users = users;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка загрузки: $e')),
-      );
-    }
+    final auth = Provider.of<AuthService>(context, listen: false);
+    companyUsers = await auth.getCompanyUsers();
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Список работников'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadUsers,
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _users.isEmpty
-              ? const Center(child: Text('Нет работников'))
-              : ListView.builder(
-                  padding: const EdgeInsets.only(top: 8, bottom: 80),
-                  itemCount: _users.length,
-                  itemBuilder: (context, index) => _buildEmployeeCard(_users[index]),
-                ),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        onPressed: () => _showAddUserDialog(),
-      ),
-    );
+  void dispose() {
+    _tabController.dispose();
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
-  Widget _buildEmployeeCard(User user) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: _getStatusColor(user.status),
-                child: Text(user.fullName[0]),
-              ),
-              title: Text(
-                user.fullName,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(user.email),
-                  Text('Роль: ${user.role == 'admin' ? 'Администратор' : 'Работник'}'),
-                ],
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _deleteUser(user.id),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildStatsRow(user),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatsRow(User user) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatItem('Контейнеры', user.stats?.containersCollected ?? 0, Icons.delete),
-          _buildStatItem('Километры', user.stats?.kilometersDriven ?? 0, Icons.directions_car),
-          _buildStatItem('Рейтинг', user.stats?.rating ?? 0, Icons.star),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, dynamic value, IconData icon) {
+  Widget _buildStatItem(String title, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, size: 24, color: Colors.blue),
-        const SizedBox(height: 4),
-        Text(
-          value.toString(),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: Colors.green),
         ),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-        ),
+        const SizedBox(height: 8),
+        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(title, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
       ],
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'active':
-        return Colors.green;
-      case 'on_route':
-        return Colors.blue;
-      case 'offline':
-      default:
-        return Colors.grey;
-    }
-  }
+  void _editBin(Bin bin) {
+    final latCtrl = TextEditingController(text: bin.latitude.toString());
+    final lngCtrl = TextEditingController(text: bin.longitude.toString());
 
-  Future<void> _deleteUser(String userId) async {
-    final confirmed = await showDialog<bool>(
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить работника?'),
-        content: const Text('Вы уверены, что хотите удалить этого работника?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      try {
-        await authService.deleteUser(userId);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Работник удалён')),
-        );
-        _loadUsers();
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка удаления: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _showAddUserDialog() async {
-    final nameController = TextEditingController();
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Добавить работника'),
+      builder: (_) => AlertDialog(
+        title: Text('Редактировать ${bin.id}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Имя работника',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Пароль',
-                border: OutlineInputBorder(),
-              ),
-              obscureText: true,
-            ),
+            TextField(controller: latCtrl, decoration: const InputDecoration(labelText: 'Широта')),
+            TextField(controller: lngCtrl, decoration: const InputDecoration(labelText: 'Долгота')),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              if (mounted) {
+                Navigator.of(context, rootNavigator: true).maybePop();
+              }
+            },
             child: const Text('Отмена'),
           ),
           ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isEmpty || 
-                  emailController.text.isEmpty || 
-                  passwordController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Заполните все поля')),
-                );
-                return;
-              }
+            child: const Text('Сохранить'),
+            onPressed: () {
+              if (!mounted) return;
+              setState(() {
+                bin.latitude = double.tryParse(latCtrl.text) ?? bin.latitude;
+                bin.longitude = double.tryParse(lngCtrl.text) ?? bin.longitude;
+              });
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
-              final authService = Provider.of<AuthService>(context, listen: false);
-              try {
-                await authService.addUser(
-                  nameController.text.trim(),
-                  emailController.text.trim(),
-                  passwordController.text.trim(),
-                );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Работник добавлен')),
-                );
-                _loadUsers();
-                Navigator.pop(context);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Ошибка: $e')),
-                );
+  void _addNewBin() {
+    final idCtrl = TextEditingController();
+    final latCtrl = TextEditingController();
+    final lngCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Новый контейнер'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: idCtrl, decoration: const InputDecoration(labelText: 'ID')),
+            TextField(controller: latCtrl, decoration: const InputDecoration(labelText: 'Широта')),
+            TextField(controller: lngCtrl, decoration: const InputDecoration(labelText: 'Долгота')),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              if (mounted) {
+                Navigator.of(context, rootNavigator: true).maybePop();
               }
             },
-            child: const Text('Добавить'),
+            child: const Text('Отмена'),
           ),
+          ElevatedButton(
+            child: const Text('Добавить'),
+            onPressed: () {
+              final authService = Provider.of<AuthService>(context, listen: false);
+              if (!mounted) return;
+              setState(() {
+                bins.add(Bin(
+                  id: idCtrl.text,
+                  companyId: authService.currentUser?.company?.id ?? 'unknown',
+                  city: 'Неизвестно',
+                  latitude: double.tryParse(latCtrl.text) ?? 0,
+                  longitude: double.tryParse(lngCtrl.text) ?? 0,
+                  fillStatus: 0,
+                  charge: 0,
+                  isOnRoute: 0,
+                  temperatureAlert: 0,
+                  floodAlert: 0,
+                  tiltAlert: 0,
+                  lastUpdated: DateTime.now(),
+                ));
+              });
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserTab(AuthService auth, User? user) {
+    final filteredUsers = companyUsers?.where((user) =>
+        user.fullName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Поиск
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Поиск сотрудников',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onChanged: (value) {
+                if (!mounted) return;
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+          ),
+
+          // Добавить пользователя
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 2,
+            margin: const EdgeInsets.all(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Добавить пользователя', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Имя')),
+                  TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
+                  TextField(controller: passwordController, decoration: const InputDecoration(labelText: 'Пароль')),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      auth.addUser(nameController.text, emailController.text, passwordController.text);
+                      _loadUsers();
+                    },
+                    child: const Text('Добавить'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Список пользователей
+          if (filteredUsers == null)
+            const Center(child: CircularProgressIndicator())
+          else if (filteredUsers.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Сотрудники не найдены'),
+            )
+          else
+            ...filteredUsers.map((user) {
+              return Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 2,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ListTile(
+                  leading: const CircleAvatar(child: Icon(Icons.person)),
+                  title: Text(user.fullName),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(user.email),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(child: _buildStatItem('Контейнеры', '${user.stats?.containersCollected ?? 0}', Icons.delete)),
+                          Expanded(child: _buildStatItem('Км', '${user.stats?.kilometersDriven ?? 0}', Icons.directions_car)),
+                          Expanded(child: _buildStatItem('★', '${user.stats?.rating ?? 0}', Icons.star)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () {
+                      auth.deleteUser(user.id);
+                      _loadUsers();
+                    },
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBinsTab() {
+    final filteredBins = bins.where((bin) =>
+        bin.id.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+        bin.city.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Поиск
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Поиск контейнеров',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onChanged: (value) {
+                if (!mounted) return;
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+          ),
+
+          // Добавить контейнер
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ElevatedButton(
+              onPressed: _addNewBin,
+              child: const Text('Добавить контейнер'),
+            ),
+          ),
+
+          // Список контейнеров
+          if (filteredBins.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Контейнеры не найдены'),
+            )
+          else
+            ...filteredBins.map((bin) => Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: ListTile(
+                    title: Text('${bin.id} (${bin.fillStatus == 1 ? "Заполнен" : "Пустой"})'),
+                    subtitle: Text('Lat: ${bin.latitude}, Lon: ${bin.longitude}'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => _editBin(bin),
+                    ),
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = Provider.of<AuthService>(context);
+    final user = auth.currentUser;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: RichText(
+          text: const TextSpan(
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Roboto',
+            ),
+            children: [
+              TextSpan(text: 'Ec', style: TextStyle(color: Colors.black)),
+              TextSpan(text: 'o', style: TextStyle(color: Colors.red)),
+              TextSpan(text: 'Tech', style: TextStyle(color: Colors.black)),
+              TextSpan(text: 'B', style: TextStyle(color: Colors.green)),
+              TextSpan(text: 'in', style: TextStyle(color: Colors.black)),
+            ],
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(icon: Icon(Icons.people), text: 'Сотрудники'),
+            Tab(icon: Icon(Icons.sensors), text: 'Датчики'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildUserTab(auth, user),
+          _buildBinsTab(),
         ],
       ),
     );

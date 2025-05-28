@@ -5,8 +5,8 @@ class Bin {
   final String id;
   final String companyId;
   final String city;
-  final double latitude;
-  final double longitude;
+  late final double latitude;
+  late final double longitude;
   int fillStatus; // 0: пустой, 1: заполнен
   int charge; // 0: заряжен, 1: разряжен
   int isOnRoute; // 0: не на маршруте, 1: на маршруте
@@ -33,7 +33,7 @@ class Bin {
   factory Bin.fromJson(Map<String, dynamic> json) {
     return Bin(
       id: json['id'],
-      companyId: json['companyId'],
+      companyId: json['companyId'] ?? 'unknown',
       city: json['city'],
       latitude: json['latitude'],
       longitude: json['longitude'],
@@ -54,6 +54,41 @@ class Bin {
     'latitude': latitude,
     'longitude': longitude,
     'fillStatus': fillStatus,
+    'charge': charge,
+    'isOnRoute': isOnRoute,
+    'temperatureAlert': temperatureAlert,
+    'floodAlert': floodAlert,
+    'tiltAlert': tiltAlert,
+    'lastUpdated': lastUpdated.toIso8601String(),
+  };
+
+
+  factory Bin.fromMap(Map<String, dynamic> map) {
+    return Bin(
+      id: map['id'],
+      companyId: map['companyId'] ?? 'unknown',
+      city: map['city'] ?? 'Неизвестно',
+      latitude: map['lat']?.toDouble() ?? 0.0,
+      longitude: map['lon']?.toDouble() ?? 0.0,
+      fillStatus: map['fill'] ?? 0,
+      charge: map['charge'] ?? 0,
+      isOnRoute: map['isOnRoute'] ?? 0,
+      temperatureAlert: map['temperatureAlert'] ?? 0,
+      floodAlert: map['floodAlert'] ?? 0,
+      tiltAlert: map['tiltAlert'] ?? 0,
+      lastUpdated: map['lastUpdated'] != null
+          ? DateTime.parse(map['lastUpdated'])
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'companyId': companyId,
+    'city': city,
+    'lat': latitude,
+    'lon': longitude,
+    'fill': fillStatus,
     'charge': charge,
     'isOnRoute': isOnRoute,
     'temperatureAlert': temperatureAlert,
@@ -113,11 +148,11 @@ class Bin {
 
 class User {
   final String id;
-  final String fullName;
-  final String email;
-  final String role;
+  late final String fullName;
+  late final String email;
+  late final String role;
   final Company? company;
-  final String status; // 'active', 'on_route', 'offline'
+  late final String status; // 'active', 'on_route', 'offline'
   final UserStats? stats;
 
   static var testUser;

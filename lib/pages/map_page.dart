@@ -72,7 +72,7 @@ class MarkerData {
 bool _isRouteActive = false;
 PolylineMapObject? _routeObject;
 
-Future<void> updateBinStatus(String serialNumber, int status) async {
+/*Future<void> updateBinStatus(String serialNumber, int status) async {
   final response = await http.put(
     Uri.parse('http://192.168.1.84:8080/bins/$serialNumber/update-status'),
     body: json.encode({'status': status}),
@@ -84,7 +84,7 @@ Future<void> updateBinStatus(String serialNumber, int status) async {
   } else {
     throw Exception('Failed to update bin status');
   }
-}
+}*/
 
 class MyMapPage extends StatefulWidget {
   final Point initialCameraTarget;
@@ -140,6 +140,7 @@ class _MyMapPageState extends State<MyMapPage> {
     print('Ошибка получения данных с датчика: $e');
   }
 
+  if (!mounted) return;
   setState(() {
     allMarkers = localMarkers;
     loadMarkers();
@@ -152,6 +153,7 @@ void _startDemoUpdates() {
       final response = await http.get(Uri.parse('http://192.168.1.94/data'));
       if (response.statusCode == 200) {
         final sensorData = json.decode(response.body);
+        if (!mounted) return;
         setState(() {
           final demoIndex = allMarkers.indexWhere((m) => m.id == BinConfig.demoBinId);
           if (demoIndex != -1) {
@@ -179,7 +181,7 @@ void _startDemoUpdates() {
 
 void _updateBinStatusLocal(String id, int newStatus) {
   if (id == BinConfig.demoBinId) return;
-  
+  if (!mounted) return;
   setState(() {
     allMarkers = allMarkers.map((marker) {
       if (marker.id == id) {
@@ -276,6 +278,7 @@ Future<void> fetchAndUpdateBinStatus() async {
   }
 
   void updateRouteMarkers() {
+    if (!mounted) return;
     setState(() {
       routeMarkers = allMarkers.where((marker) => marker.isOnRoute == 1).toList();
     });
@@ -481,7 +484,7 @@ Widget _buildStatusIndicator({
           print('Tapped at $point');
         },
       );
-
+    if (!mounted) return;
     setState(() {
       mapObjects.clear();
       mapObjects.add(clusterized);
@@ -501,7 +504,7 @@ Widget _buildStatusIndicator({
     strokeColor: Colors.blue,
     strokeWidth: 4,
   );
-
+  if (!mounted) return;
   setState(() {
     mapObjects.removeWhere((obj) => obj.mapId.value.startsWith('route_'));
     mapObjects.add(_routeObject!);
@@ -516,7 +519,7 @@ Widget _buildStatusIndicator({
     ).toList();
   }
 
-  void _addToRoute(MarkerData marker) async {
+  /*void _addToRoute(MarkerData marker) async {
     try {
       await updateBinStatus(marker.id, 1);
       //await fetchAndUpdateBinStatus();
@@ -525,7 +528,7 @@ Widget _buildStatusIndicator({
         SnackBar(content: Text('Ошибка: ${e.toString()}')),
       );
     }
-  }
+  }*/
 
   Future<void> _buildRoute() async {
     if (currentLocationPoint == null) return;
@@ -579,7 +582,7 @@ Widget _buildStatusIndicator({
       for (var marker in fullMarkers) {
         _updateBinStatusLocal(marker.id, 1); // Обновляем статус на 1 (на маршруте)
       }
-
+      if (!mounted) return;
       setState(() {
         routeMarkers = allMarkers.where((marker) => marker.isOnRoute == 1).toList();
       });
@@ -620,7 +623,7 @@ Widget _buildStatusIndicator({
 
       final route = result.routes!.first;
       _updateMapWithRoute(route.geometry);
-
+      if (!mounted) return;
       setState(() {
         _isRouteActive = true;
       });
@@ -696,6 +699,8 @@ Future<void> _completeRoute() async {
   );
 
   if (confirm) {
+    if (!mounted) return;
+
     setState(() {
       // Сбрасываем статус "на маршруте" для всех баков, кроме демо-датчика
       allMarkers = allMarkers.map((marker) {
