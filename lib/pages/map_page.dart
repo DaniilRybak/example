@@ -148,7 +148,7 @@ class _MyMapPageState extends State<MyMapPage> {
 }
 
 void _startDemoUpdates() {
-  Timer.periodic(Duration(seconds: 10), (timer) async {
+  Timer.periodic(const Duration(seconds: 10), (timer) async {
     try {
       final response = await http.get(Uri.parse('http://192.168.1.94/data'));
       if (response.statusCode == 200) {

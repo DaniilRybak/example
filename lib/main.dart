@@ -4,6 +4,7 @@ import 'services/auth_service.dart';
 import 'pages/auth_page.dart';
 import 'pages/main_screen.dart';
 import 'services/chat_provider.dart';
+import 'services/marker_state.dart';
 
 void main() {
   runApp(
@@ -11,6 +12,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => MarkerState()),
       ],
       child: const MyApp(),
     ),
