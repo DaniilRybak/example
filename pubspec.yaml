@@ -37,4 +37,5 @@ flutter:
     - lib/assets/route_start.png
     - lib/assets/route_stop_by.png
     - lib/assets/route_end.png
+    - lib/assets/inverted_bin.png
   uses-material-design: true

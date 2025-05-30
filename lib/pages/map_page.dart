@@ -19,8 +19,8 @@ class BinConfig {
   ];
 
   static const demoBinId = 'DEMO001';
-  static const demoLat = 47.202824;
-  static const demoLon = 38.934109;
+  static const demoLat = 47.20204391118284;
+  static const demoLon = 38.935060564914544;
 }
 
 class MarkerData {
@@ -116,12 +116,12 @@ class _MyMapPageState extends State<MyMapPage> {
     isOnRoute: 0,
     temperatureAlert: 0,
     floodAlert: 0,
-    tiltAlert: 0,
+    tiltAlert: 1,
   )).toList();
 
   // Получаем данные демо-датчика
   try {
-    final response = await http.get(Uri.parse('http://192.168.1.94/data'));
+    final response = await http.get(Uri.parse('http://172.20.10.3/data'));
     if (response.statusCode == 200) {
       final sensorData = json.decode(response.body);
       localMarkers.add(MarkerData(
@@ -148,9 +148,9 @@ class _MyMapPageState extends State<MyMapPage> {
 }
 
 void _startDemoUpdates() {
-  Timer.periodic(const Duration(seconds: 10), (timer) async {
+  Timer.periodic(const Duration(seconds: 1), (timer) async {
     try {
-      final response = await http.get(Uri.parse('http://192.168.1.94/data'));
+      final response = await http.get(Uri.parse('http://172.20.10.3/data'));
       if (response.statusCode == 200) {
         final sensorData = json.decode(response.body);
         if (!mounted) return;
@@ -223,7 +223,6 @@ Future<void> fetchAndUpdateBinStatus() async {
         tiltAlert: 0,        // Для баков из БД
       )).toList();
 
-      // 4. Добавляем демо-датчик
       markers.add(MarkerData(
         id: DemoConfig.sensorId,
         latitude: DemoConfig.latitude,
@@ -420,14 +419,15 @@ Widget _buildStatusIndicator({
         asset = 'lib/assets/route_bin.png';
       } else if (marker.fillStatus == 1) {
         asset = 'lib/assets/full_bin.png';
+      } else if (marker.tiltAlert == 1) {
+        asset = 'lib/assets/inverted_bin.png';
       } else {
         asset = 'lib/assets/empty_bin.png';
       }
 
       // Маркер аварии если есть любое аварийное состояние
       if (marker.temperatureAlert == 1 || 
-          marker.floodAlert == 1 || 
-          marker.tiltAlert == 1) {
+          marker.floodAlert == 1) {
             asset = 'lib/assets/pngwing.png';
             scale = 1.0;
       }
@@ -448,7 +448,7 @@ Widget _buildStatusIndicator({
     }).toList();
 
     // Добавляем маркер текущего местоположения
-    currentLocationPoint = const Point(latitude: 47.214758, longitude: 38.914220);
+    currentLocationPoint = const Point(latitude: 47.20215689573022, longitude: 38.9352697772023);
     placemarks.add(PlacemarkMapObject(
       mapId: const MapObjectId('current_location'),
       point: currentLocationPoint!,
